@@ -353,60 +353,38 @@ class NeuralRanker:
         self.investors = list(investors)
         self.device = device
 
-    def rank(self, row):
+    def scores(self, row):
+        """Return (investor_name, softmax_score) pairs in descending order."""
 
         # -------- categorical --------
-
         cat_values = []
 
         for feature in CAT_FEATURES:
-
             value = row[feature]
 
             if pd.isna(value):
                 value = MISSING_VALUES[feature]
 
-            index = self.feature_maps[feature].get(
-                str(value),
-                0,
-            )
-
+            index = self.feature_maps[feature].get(str(value), 0)
             cat_values.append(index)
 
         # -------- numeric --------
-
-        amount_is_missing = pd.isna(
-            row["amount_log10"]
-        )
+        amount_is_missing = pd.isna(row["amount_log10"])
 
         if amount_is_missing:
-
-            amount = (
-                self.numeric_stats["amount_median"]
-            )
-
+            amount = self.numeric_stats["amount_median"]
         else:
-
-            amount = float(
-                row["amount_log10"]
-            )
+            amount = float(row["amount_log10"])
 
         amount = (
             (amount - self.numeric_stats["amount_mean"])
-            / (
-                self.numeric_stats["amount_std"]
-                + 1e-8
-            )
+            / (self.numeric_stats["amount_std"] + 1e-8)
         )
 
         age = float(row["company_age"])
-
         age = (
             (age - self.numeric_stats["age_mean"])
-            / (
-                self.numeric_stats["age_std"]
-                + 1e-8
-            )
+            / (self.numeric_stats["age_std"] + 1e-8)
         )
 
         num_values = [
@@ -416,7 +394,6 @@ class NeuralRanker:
         ]
 
         # -------- tensors --------
-
         x_cat = torch.tensor(
             [cat_values],
             dtype=torch.long,
@@ -432,22 +409,92 @@ class NeuralRanker:
         self.model.eval()
 
         with torch.no_grad():
+            logits = self.model(x_cat, x_num)
+            probabilities = torch.softmax(logits, dim=1)[0].cpu().numpy()
 
-            logits = self.model(
-                x_cat,
-                x_num,
-            )
-
-            scores = torch.softmax(
-                logits,
-                dim=1,
-            )[0].cpu().numpy()
-
-        order = np.argsort(-scores)
+        order = np.argsort(-probabilities)
 
         return [
-            self.investors[i]
+            (self.investors[i], float(probabilities[i]))
             for i in order
+        ]
+
+    def rank(self, row):
+        """Return investor names in descending score order (legacy interface)."""
+        
+    def scores(self, row):
+
+        # -------- categorical --------
+        cat_values = []
+
+        for feature in CAT_FEATURES:
+            value = row[feature]
+
+            if pd.isna(value):
+                value = MISSING_VALUES[feature]
+
+            index = self.feature_maps[feature].get(
+                str(value),
+                0,
+            )
+            cat_values.append(index)
+
+        # -------- numeric --------
+        amount_is_missing = pd.isna(row["amount_log10"])
+
+        if amount_is_missing:
+            amount = self.numeric_stats["amount_median"]
+        else:
+            amount = float(row["amount_log10"])
+
+        amount = (
+            (amount - self.numeric_stats["amount_mean"])
+            / (self.numeric_stats["amount_std"] + 1e-8)
+        )
+
+        age = float(row["company_age"])
+        age = (
+            (age - self.numeric_stats["age_mean"])
+            / (self.numeric_stats["age_std"] + 1e-8)
+        )
+
+        num_values = [
+            amount,
+            age,
+            float(amount_is_missing),
+        ]
+
+        # -------- tensors --------
+        x_cat = torch.tensor(
+            [cat_values],
+            dtype=torch.long,
+            device=self.device,
+        )
+
+        x_num = torch.tensor(
+            [num_values],
+            dtype=torch.float32,
+            device=self.device,
+        )
+
+        # -------- prediction --------
+        self.model.eval()
+
+        with torch.no_grad():
+            logits = self.model(x_cat, x_num)
+            probabilities = torch.softmax(logits, dim=1)[0].cpu().numpy()
+
+        order = np.argsort(-probabilities)
+
+        return [
+            (self.investors[i], float(probabilities[i]))
+            for i in order
+        ]
+
+    def rank(self, row):
+        return [
+            investor
+            for investor, score in self.scores(row)
         ]
 
 

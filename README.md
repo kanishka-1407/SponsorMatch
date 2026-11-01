@@ -37,3 +37,9 @@ pytest -q                       # 7 checks
 - Never use `investors_seen` from `startups_pool.csv` as a feature (it contains the target).
 - Use `amount_log10`, not raw `amount_usd` (heavy-tailed).
 - Source: dataset on Hugging Face via fliarbi.com (see `fliar_profile_url`). Check the licence and cite it in the report.
+
+## Pitch connection requests
+
+Install API dependencies with `pip install -r requirements.txt`, then run `uvicorn api:app --reload`. The matching API keeps `/rank` and `/match/startups`; connection requests use the SQLite database `sponsormatch.sqlite3` (override with `SPONSORMATCH_DB`). Register accounts with `POST /pitch/register` using role `startup` (requires `company`) or `investor` (requires `name`), then authenticate with `POST /pitch/login` and send the returned bearer token in `Authorization: Bearer <token>`.
+
+Pitch routes: `POST /pitch/generate` creates an editable profile-based draft; `POST /pitch/requests` sends it with an optional deck URL and score/reasons; `GET /pitch/inbox` lists investor requests; `GET /pitch/requests` and `GET /pitch/requests/{id}` view requests; `POST /pitch/requests/{id}/respond` accepts `accept`, `decline`, or `request_info`; `POST /pitch/requests/{id}/withdraw` withdraws a pending outgoing request. `GET /pitch/notifications` lists notifications and `POST /pitch/notifications/{id}/read` marks one read. Request messages are limited to 300 characters, outgoing requests to five per rolling seven days, and pending duplicate pairs are rejected. Peer contact email appears only after acceptance.

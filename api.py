@@ -9,6 +9,7 @@ import torch
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field, model_validator
+from pitch_requests import router as pitch_router
 
 ROOT = Path(__file__).resolve().parent
 SRC = ROOT / "src"
@@ -108,6 +109,7 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+app.include_router(pitch_router)
 # Fallback supports test clients that do not run application lifespan.
 ranker = None
 

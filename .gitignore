@@ -1,0 +1,19 @@
+.venv/
+__pycache__/
+*.pyc
+.ipynb_checkpoints/
+.DS_Store
+.env
+# Local databases
+sponsormatch.sqlite3
+*.sqlite3
+
+# Pytest temporary files
+.pytest-tmp/
+.test-tmp/
+.pytest_cache/
+__pycache__/
+*.py[cod]
+
+# Temporary verification files
+.pytest-*-before.csv
